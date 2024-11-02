@@ -1,0 +1,5 @@
+python>=3.5
+pytorch>=1.5
+matplotlib
+pandas
+timm

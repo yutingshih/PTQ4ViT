@@ -5,7 +5,6 @@ __pycache__
 .vscode
 checkpoints
 *.log
-*.csv
 *.png
 *.jpg
 output
@@ -18,3 +17,9 @@ ckt
 *.json
 test.ipynb
 int_weights
+weights/
+
+.env/
+.venv/
+env/
+venv/
