@@ -2,12 +2,14 @@
 Reuse version v4
 Author: Hahn Yuan
 """
-import PIL
-import torch
 import argparse
-import numpy as np
 import os
 import copy
+from typing import Dict
+
+import numpy as np
+import PIL
+import torch
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 from torchvision.datasets import ImageFolder,DatasetFolder
@@ -28,7 +30,7 @@ def calculate_n_correct(outputs,targets):
 class SetSplittor():
     def __init__(self,fraction=0.2):
         self.fraction=fraction
-    
+
     def split(self,dataset):
         pass
 
@@ -55,32 +57,32 @@ class LoaderGenerator():
             }
         self.test_loader_kwargs=self.train_loader_kwargs.copy()
         self.load()
-    
+
     @property
     def train_set(self):
         pass
-    
+
     @property
     def test_set(self):
         pass
-    
+
     def load(self):
         pass
-    
+
     def train_loader(self):
         assert self.train_set is not None
         return torch.utils.data.DataLoader(self.train_set, batch_size=self.train_batch_size, shuffle=True,  **self.train_loader_kwargs)
-    
+
     def test_loader(self,shuffle=False,batch_size=None):
         assert self.test_set is not None
         if batch_size is None:
             batch_size=self.test_batch_size
         return torch.utils.data.DataLoader(self.test_set, batch_size=batch_size, shuffle=shuffle,  **self.test_loader_kwargs)
-    
+
     def val_loader(self):
         assert self.val_set is not None
         return torch.utils.data.DataLoader(self.val_set, batch_size=self.test_batch_size, shuffle=False,  **self.test_loader_kwargs)
-    
+
     def trainval_loader(self):
         assert self.trainval_set is not None
         return torch.utils.data.DataLoader(self.trainval_set, batch_size=self.train_batch_size, shuffle=True,  **self.train_loader_kwargs)
@@ -92,7 +94,7 @@ class LoaderGenerator():
             self._calib_set=torch.utils.data.Subset(copy.deepcopy(self.train_set),inds)
             self._calib_set.dataset.transform=self.test_transform
         return torch.utils.data.DataLoader(self._calib_set, batch_size=num, shuffle=False,  **self.train_loader_kwargs)
-        
+
 class CIFARLoaderGenerator(LoaderGenerator):
     def load(self):
         if self.dataset_name=='cifar100':
@@ -134,7 +136,7 @@ class COCOLoaderGenerator(LoaderGenerator):
         self.test_set = DetectionListDataset(os.path.join(self.root,'5k.txt'),transform=detection_tansforms,multiscale=False)
         self.train_loader_kwargs={"collate_fn":self.train_set.collate_fn}
         self.test_loader_kwargs={"collate_fn":self.test_set.collate_fn}
-        
+
 class DetectionListDataset(Dataset):
     def __init__(self, list_path, img_size=416, multiscale=True, transform=None):
         with open(list_path, "r") as file:
@@ -179,7 +181,7 @@ class DetectionListDataset(Dataset):
         self.batch_count += 1
         # Drop invalid images
         batch = [data for data in batch if data is not None]
-        
+
         paths, imgs, bb_targets = list(zip(*batch))
         # Selects new image size every tenth batch
         if self.multiscale and self.batch_count % 10 == 0:
@@ -219,7 +221,7 @@ class ImageNetLoaderGenerator(LoaderGenerator):
                 transforms.ToTensor(),
                 normalize,
             ])
-    
+
     @property
     def train_set(self):
         if self._train_set is None:
@@ -237,7 +239,7 @@ class CacheDataset(Dataset):
         super().__init__()
         self.datas=datas
         self.targets=targets
-        
+
     def __getitem__(self,idx):
         return self.datas[idx],self.targets[idx]
 
@@ -266,7 +268,7 @@ class FasterImageNetLoaderGenerator(ImageNetLoaderGenerator):
             torch.save([datas,targets],cache)
         dataset=CacheDataset(datas,targets)
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,  **self.test_loader_kwargs)
-            
+
 class DebugLoaderGenerator(LoaderGenerator):
 
     def load(self):
@@ -288,17 +290,17 @@ class DebugLoaderGenerator(LoaderGenerator):
         self.test_set=DebugSet()
 
 def get_dataset(args:argparse.Namespace):
-    """ Preparing Datasets, args: 
+    """ Preparing Datasets, args:
         dataset (required): MNIST, cifar10/100, ImageNet, coco
         dataset_root: str, default='./datasets'
         num_workers: int
         batch_size: int
         test_batch_size: int
         val_fraction: float, default=0
-        
+
     """
     dataset_name=str.lower(args.dataset)
-    dataset_root=getattr(args,'dataset_root','./datasets') 
+    dataset_root=getattr(args,'dataset_root','./datasets')
     num_workers=args.num_workers if hasattr(args,'num_workers') else 4
     batch_size=args.batch_size if hasattr(args,'batch_size') else 64
     test_batch_size=args.test_batch_size if hasattr(args,'test_batch_size') else batch_size
@@ -315,7 +317,7 @@ def get_dataset(args:argparse.Namespace):
     else:
         raise NotImplementedError
     return g.train_loader(),g.test_loader()
-    
+
 
 import timm
 from timm.models.vision_transformer import VisionTransformer
@@ -324,10 +326,10 @@ from timm.data.transforms_factory import create_transform
 
 class ViTImageNetLoaderGenerator(ImageNetLoaderGenerator):
     """
-    DataLoader for Vision Transformer. 
+    DataLoader for Vision Transformer.
     To comply with timm's framework, we use the model's corresponding transform.
     """
-    def __init__(self, root, dataset_name, train_batch_size, test_batch_size, num_workers, kwargs={}):
+    def __init__(self, root, dataset_name, train_batch_size, test_batch_size, num_workers, kwargs: Dict = {}):
         kwargs.update({"pin_memory":False})
         super().__init__(root, dataset_name, train_batch_size=train_batch_size, test_batch_size=test_batch_size, num_workers=num_workers, kwargs=kwargs)
 
@@ -338,4 +340,3 @@ class ViTImageNetLoaderGenerator(ImageNetLoaderGenerator):
         config = resolve_data_config({}, model=model)
         self.train_transform = create_transform(**config, is_training=True)
         self.test_transform = create_transform(**config)
-
